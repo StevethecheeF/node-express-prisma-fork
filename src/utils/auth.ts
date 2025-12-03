@@ -1,27 +1,55 @@
-const jwt = require('express-jwt');
+import { NextFunction, Request, Response } from 'express';
+import jwt from "jsonwebtoken";
 
-const getTokenFromHeaders = (req: { headers: { authorization: string } }): string | null => {
-  if (
-    (req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Token') ||
-    (req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer')
-  ) {
-    return req.headers.authorization.split(' ')[1];
+export interface AuthRequest extends Request {
+  user?: any;
+}
+
+const getTokenFromHeaders = (req: Request): string | null => {
+  const auth = req.headers.authorization;
+  if (!auth) return null;
+
+  const [scheme, token] = auth.split(" ");
+
+  if ((scheme === "Token" || scheme === "Bearer") && token) {
+    return token;
   }
+
   return null;
 };
 
+const required = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const token = getTokenFromHeaders(req);
+
+  if (!token) {
+    return res.status(401).json({ errors: { body: ["Authorization required"] } });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || "superSecret");
+    next();
+  } catch {
+    return res.status(401).json({ errors: { body: ["Invalid token"] } });
+  }
+};
+
+const optional = (req: AuthRequest, _res: Response, next: NextFunction) => {
+  const token = getTokenFromHeaders(req);
+
+  if (token) {
+    try {
+      req.user = jwt.verify(token, process.env.JWT_SECRET || "superSecret");
+    } catch {
+      // credentials are not required
+    }
+  }
+
+  next();
+};
+
 const auth = {
-  required: jwt({
-    secret: process.env.JWT_SECRET || 'superSecret',
-    getToken: getTokenFromHeaders,
-    algorithms: ['HS256'],
-  }),
-  optional: jwt({
-    secret: process.env.JWT_SECRET || 'superSecret',
-    credentialsRequired: false,
-    getToken: getTokenFromHeaders,
-    algorithms: ['HS256'],
-  }),
+  required,
+  optional,
 };
 
 export default auth;
