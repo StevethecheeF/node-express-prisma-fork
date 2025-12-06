@@ -5,6 +5,7 @@ import bodyParser from 'body-parser';
 import routes from './routes/routes';
 import HttpException from './models/http-exception.model';
 import swaggerDocument from '../docs/swagger.json';
+import { requestLogger } from './utils/logger';
 
 const app = express();
 
@@ -15,6 +16,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(requestLogger)
+
 app.use(routes);
 
 // Serves images
